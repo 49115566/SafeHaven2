@@ -7,6 +7,10 @@ export const backend = defineBackend({
   shelterApi,
 });
 
+// Add environment variables for table names
+backend.shelterApi.addEnvironment('SHELTERS_TABLE', backend.data.resources.tables['Shelter'].tableName);
+backend.shelterApi.addEnvironment('USERS_TABLE', backend.data.resources.tables['User'].tableName);
+
 // Grant the Lambda function access to DynamoDB tables
 backend.shelterApi.resources.lambda.addToRolePolicy({
   effect: 'Allow',
