@@ -4,20 +4,18 @@ const schema = a.schema({
   Shelter: a
     .model({
       name: a.string().required(),
+      address: a.string().required(),
       latitude: a.float().required(),
       longitude: a.float().required(),
-      address: a.string().required(),
-      currentCapacity: a.integer().default(0),
-      maximumCapacity: a.integer().required(),
-      foodNeed: a.integer().default(0),
-      waterNeed: a.integer().default(0),
-      medicalSuppliesNeed: a.integer().default(0),
-      blanketsNeed: a.integer().default(0),
-      clothingNeed: a.integer().default(0),
-      otherNeeds: a.string().default(''),
+      currentCapacity: a.integer().required(),
+      maxCapacity: a.integer().required(),
+      needsFood: a.boolean().default(false),
+      needsWater: a.boolean().default(false),
+      needsMedical: a.boolean().default(false),
+      needsBlankets: a.boolean().default(false),
+      needsClothing: a.boolean().default(false),
       status: a.enum(['no-action', 'acknowledged', 'in-progress', 'completed']).default('no-action'),
-      otherInformation: a.string().default(''),
-      lastUpdated: a.datetime().required(),
+      otherInfo: a.string(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 
@@ -28,7 +26,6 @@ const schema = a.schema({
       shelterId: a.id(),
       latitude: a.float(),
       longitude: a.float(),
-      address: a.string(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 });
