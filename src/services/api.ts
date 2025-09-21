@@ -1,7 +1,5 @@
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../amplify/data/resource';
 import { Shelter, User } from '../types';
 
 const client = generateClient<Schema>();
@@ -17,40 +15,37 @@ function mapShelterFromAmplify(amplifyData: any): Shelter {
     },
     capacity: {
       current: amplifyData.currentCapacity || 0,
-      maximum: amplifyData.maximumCapacity
+      maximum: amplifyData.maxCapacity
     },
     needs: {
-      food: amplifyData.foodNeed || 0,
-      water: amplifyData.waterNeed || 0,
-      medicalSupplies: amplifyData.medicalSuppliesNeed || 0,
-      blankets: amplifyData.blanketsNeed || 0,
-      clothing: amplifyData.clothingNeed || 0,
-      other: amplifyData.otherNeeds || ''
+      food: amplifyData.needsFood ? 3 : 0,
+      water: amplifyData.needsWater ? 3 : 0,
+      medicalSupplies: amplifyData.needsMedical ? 3 : 0,
+      blankets: amplifyData.needsBlankets ? 3 : 0,
+      clothing: amplifyData.needsClothing ? 3 : 0,
+      other: amplifyData.otherInfo || ''
     },
     status: amplifyData.status || 'no-action',
-    otherInformation: amplifyData.otherInformation || '',
-    lastUpdated: amplifyData.lastUpdated
+    otherInformation: amplifyData.otherInfo || '',
+    lastUpdated: amplifyData.updatedAt || new Date().toISOString()
   };
 }
 
 function mapShelterToAmplify(shelter: Shelter) {
   return {
-    id: shelter.id,
     name: shelter.name,
     latitude: shelter.location.latitude,
     longitude: shelter.location.longitude,
     address: shelter.location.address,
     currentCapacity: shelter.capacity.current,
-    maximumCapacity: shelter.capacity.maximum,
-    foodNeed: shelter.needs.food,
-    waterNeed: shelter.needs.water,
-    medicalSuppliesNeed: shelter.needs.medicalSupplies,
-    blanketsNeed: shelter.needs.blankets,
-    clothingNeed: shelter.needs.clothing,
-    otherNeeds: shelter.needs.other,
+    maxCapacity: shelter.capacity.maximum,
+    needsFood: shelter.needs.food > 0,
+    needsWater: shelter.needs.water > 0,
+    needsMedical: shelter.needs.medicalSupplies > 0,
+    needsBlankets: shelter.needs.blankets > 0,
+    needsClothing: shelter.needs.clothing > 0,
     status: shelter.status,
-    otherInformation: shelter.otherInformation,
-    lastUpdated: shelter.lastUpdated
+    otherInfo: shelter.otherInformation
   };
 }
 
@@ -92,7 +87,10 @@ export const api = {
   },
 
   async updateShelter(shelter: Shelter): Promise<void> {
-    await client.models.Shelter.update(mapShelterToAmplify(shelter));
+    await client.models.Shelter.update({
+      id: shelter.id,
+      ...mapShelterToAmplify(shelter)
+    });
   },
 
   async updateShelterStatus(shelterId: string, status: Shelter['status']): Promise<void> {
