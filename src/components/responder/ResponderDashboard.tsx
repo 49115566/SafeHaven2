@@ -7,8 +7,9 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useApp } from '../../contexts/AppContext';
 import { Shelter, NEED_LABELS, STATUS_LABELS, User } from '../../types/index';
-import { ArrowLeft, Users, MapPin, Navigation, AlertTriangle, Building } from 'lucide-react';
+import { ArrowLeft, Users, MapPin, Navigation, AlertTriangle, Building, Search } from 'lucide-react';
 import { calculateDistance, getUserLocation } from '../../utils/distance';
+import { geocodeAddress } from '../../utils/geocoding';
 
 // Fallback definitions in case import fails
 const LOCAL_STATUS_LABELS = {
@@ -32,6 +33,8 @@ export function ResponderDashboard() {
   const [responderLocation, setResponderLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [sortedShelters, setSortedShelters] = useState<Array<Shelter & {distance?: number}>>(state.shelters);
   const [responderName, setResponderName] = useState('');
+  const [responderAddress, setResponderAddress] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -52,35 +55,63 @@ export function ResponderDashboard() {
       };
       
       setResponderLocation(location);
-      
-      // Create or update user
-      const user: User = {
-        id: currentUser?.id || Date.now().toString(),
-        name: responderName || 'First Responder',
-        type: 'responder',
-        location: location
-      };
-      
-      if (!currentUser) {
-        dispatch({ type: 'ADD_USER', payload: user });
-        setCurrentUser(user);
-      }
-      
-      // Sort shelters by distance
-      const sheltersWithDistance = state.shelters.map(shelter => ({
-        ...shelter,
-        distance: calculateDistance(
-          location.latitude,
-          location.longitude,
-          shelter.location.latitude,
-          shelter.location.longitude
-        )
-      })).sort((a, b) => (a.distance || 0) - (b.distance || 0));
-      
-      setSortedShelters(sheltersWithDistance);
+      updateUserAndSortShelters(location);
     } catch (error) {
       alert('Unable to get your location. Please ensure location permissions are enabled.');
     }
+  };
+
+  const handleGeocodeAddress = async () => {
+    if (!responderAddress.trim()) {
+      alert('Please enter an address first');
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodeAddress(responderAddress);
+      const location = {
+        latitude: result.latitude,
+        longitude: result.longitude
+      };
+      
+      setResponderLocation(location);
+      setResponderAddress(result.displayAddress);
+      updateUserAndSortShelters(location);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to find address');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const updateUserAndSortShelters = (location: {latitude: number, longitude: number}) => {
+    // Create or update user
+    const user: User = {
+      id: currentUser?.id || Date.now().toString(),
+      name: responderName || 'First Responder',
+      type: 'responder',
+      location: location,
+      address: responderAddress || undefined // Store the address if provided
+    };
+    
+    if (!currentUser) {
+      dispatch({ type: 'ADD_USER', payload: user });
+      setCurrentUser(user);
+    }
+    
+    // Sort shelters by distance
+    const sheltersWithDistance = state.shelters.map(shelter => ({
+      ...shelter,
+      distance: calculateDistance(
+        location.latitude,
+        location.longitude,
+        shelter.location.latitude,
+        shelter.location.longitude
+      )
+    })).sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    
+    setSortedShelters(sheltersWithDistance);
   };
 
   const handleStatusUpdate = (shelterId: string, status: Shelter['status']) => {
@@ -155,18 +186,75 @@ export function ResponderDashboard() {
                   placeholder="Enter your name"
                 />
               </div>
-              <Button 
-                onClick={handleGetLocation} 
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                disabled={!responderName}
-              >
-                <Navigation className="h-4 w-4 mr-2" />
-                Get My Location & Sort Shelters
-              </Button>
+              
+              <div className="space-y-2">
+                <Label>Location Options</Label>
+                <Button 
+                  onClick={handleGetLocation} 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  disabled={!responderName}
+                >
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Use Current Location
+                </Button>
+                
+                <div className="text-center text-sm text-gray-500">or</div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="responderAddress">Enter Address</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="responderAddress"
+                      value={responderAddress}
+                      onChange={(e) => setResponderAddress(e.target.value)}
+                      placeholder="Enter your address or station location"
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleGeocodeAddress}
+                      disabled={isGeocoding || !responderName || !responderAddress.trim()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {isGeocoding ? (
+                        'Finding...'
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-1" />
+                          Find
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
               {responderLocation && (
-                <p className="text-sm text-gray-600">
-                  Location: {responderLocation.latitude.toFixed(4)}, {responderLocation.longitude.toFixed(4)}
-                </p>
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-blue-800">
+                        <MapPin className="h-4 w-4 inline mr-1" />
+                        Location set: {responderLocation.latitude.toFixed(4)}, {responderLocation.longitude.toFixed(4)}
+                      </p>
+                      {responderAddress && (
+                        <p className="text-blue-700 text-xs mt-1">{responderAddress}</p>
+                      )}
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setResponderLocation(null);
+                        setResponderAddress('');
+                        setSortedShelters(state.shelters);
+                      }}
+                      size="sm"
+                      variant="ghost"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

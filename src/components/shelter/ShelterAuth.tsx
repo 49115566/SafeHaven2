@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { useApp } from '../../contexts/AppContext';
 import { Shelter, User } from '../../types';
-import { ArrowLeft, MapPin, Building } from 'lucide-react';
+import { ArrowLeft, MapPin, Building, Search } from 'lucide-react';
+import { geocodeAddress } from '../../utils/geocoding';
 
 export function ShelterAuth() {
   const { state, dispatch } = useApp();
@@ -16,11 +17,11 @@ export function ShelterAuth() {
     userName: '',
     shelterName: '',
     address: '',
-    latitude: '',
-    longitude: '',
     maxCapacity: '',
     otherInformation: ''
   });
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodedLocation, setGeocodedLocation] = useState<{latitude: number, longitude: number, displayAddress: string} | null>(null);
 
   const handleBack = () => {
     dispatch({ type: 'SET_CURRENT_SIDE', payload: 'landing' });
@@ -41,9 +42,32 @@ export function ShelterAuth() {
     dispatch({ type: 'SET_CURRENT_USER', payload: user });
   };
 
+  const handleGeocodeAddress = async () => {
+    if (!formData.address.trim()) {
+      alert('Please enter an address first');
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodeAddress(formData.address);
+      setGeocodedLocation(result);
+      setFormData(prev => ({ ...prev, address: result.displayAddress }));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to find address');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   const handleRegister = () => {
     if (!formData.shelterName || !formData.address || !formData.maxCapacity) {
       alert('Please fill in all required fields');
+      return;
+    }
+
+    if (!geocodedLocation) {
+      alert('Please geocode the address first by clicking the search button');
       return;
     }
 
@@ -53,9 +77,9 @@ export function ShelterAuth() {
       id: shelterId,
       name: formData.shelterName,
       location: {
-        latitude: parseFloat(formData.latitude) || 0,
-        longitude: parseFloat(formData.longitude) || 0,
-        address: formData.address
+        latitude: geocodedLocation.latitude,
+        longitude: geocodedLocation.longitude,
+        address: geocodedLocation.displayAddress
       },
       capacity: {
         current: 0,
@@ -165,37 +189,42 @@ export function ShelterAuth() {
 
                 <div>
                   <Label htmlFor="address">Address *</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Full street address"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="latitude">Latitude</Label>
+                  <div className="flex gap-2">
                     <Input
-                      id="latitude"
-                      value={formData.latitude}
-                      onChange={(e) => setFormData(prev => ({ ...prev, latitude: e.target.value }))}
-                      placeholder="40.7128"
-                      type="number"
-                      step="any"
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, address: e.target.value }));
+                        setGeocodedLocation(null); // Reset geocoded location when address changes
+                      }}
+                      placeholder="Full street address (e.g., 123 Main St, City, State)"
+                      className="flex-1"
                     />
+                    <Button
+                      type="button"
+                      onClick={handleGeocodeAddress}
+                      disabled={isGeocoding || !formData.address.trim()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {isGeocoding ? (
+                        'Searching...'
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-1" />
+                          Find
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="longitude">Longitude</Label>
-                    <Input
-                      id="longitude"
-                      value={formData.longitude}
-                      onChange={(e) => setFormData(prev => ({ ...prev, longitude: e.target.value }))}
-                      placeholder="-74.0060"
-                      type="number"
-                      step="any"
-                    />
-                  </div>
+                  {geocodedLocation && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm">
+                      <p className="text-green-800">
+                        <MapPin className="h-4 w-4 inline mr-1" />
+                        Location found: {geocodedLocation.latitude.toFixed(4)}, {geocodedLocation.longitude.toFixed(4)}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>

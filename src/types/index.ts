@@ -32,6 +32,7 @@ export interface User {
     latitude: number;
     longitude: number;
   }; // Only for responder users
+  address?: string; // Only for responder users - optional address they entered
 }
 
 export interface AppState {
