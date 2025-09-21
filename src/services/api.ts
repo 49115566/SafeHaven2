@@ -15,37 +15,40 @@ function mapShelterFromAmplify(amplifyData: any): Shelter {
     },
     capacity: {
       current: amplifyData.currentCapacity || 0,
-      maximum: amplifyData.maxCapacity
+      maximum: amplifyData.maximumCapacity
     },
     needs: {
-      food: amplifyData.needsFood ? 3 : 0,
-      water: amplifyData.needsWater ? 3 : 0,
-      medicalSupplies: amplifyData.needsMedical ? 3 : 0,
-      blankets: amplifyData.needsBlankets ? 3 : 0,
-      clothing: amplifyData.needsClothing ? 3 : 0,
-      other: amplifyData.otherInfo || ''
+      food: amplifyData.foodNeed || 0,
+      water: amplifyData.waterNeed || 0,
+      medicalSupplies: amplifyData.medicalSuppliesNeed || 0,
+      blankets: amplifyData.blanketsNeed || 0,
+      clothing: amplifyData.clothingNeed || 0,
+      other: amplifyData.otherNeeds || ''
     },
     status: amplifyData.status || 'no-action',
-    otherInformation: amplifyData.otherInfo || '',
-    lastUpdated: amplifyData.updatedAt || new Date().toISOString()
+    otherInformation: amplifyData.otherInformation || '',
+    lastUpdated: amplifyData.lastUpdated
   };
 }
 
 function mapShelterToAmplify(shelter: Shelter) {
   return {
+    id: shelter.id,
     name: shelter.name,
     latitude: shelter.location.latitude,
     longitude: shelter.location.longitude,
     address: shelter.location.address,
     currentCapacity: shelter.capacity.current,
-    maxCapacity: shelter.capacity.maximum,
-    needsFood: shelter.needs.food > 0,
-    needsWater: shelter.needs.water > 0,
-    needsMedical: shelter.needs.medicalSupplies > 0,
-    needsBlankets: shelter.needs.blankets > 0,
-    needsClothing: shelter.needs.clothing > 0,
+    maximumCapacity: shelter.capacity.maximum,
+    foodNeed: shelter.needs.food,
+    waterNeed: shelter.needs.water,
+    medicalSuppliesNeed: shelter.needs.medicalSupplies,
+    blanketsNeed: shelter.needs.blankets,
+    clothingNeed: shelter.needs.clothing,
+    otherNeeds: shelter.needs.other,
     status: shelter.status,
-    otherInfo: shelter.otherInformation
+    otherInformation: shelter.otherInformation,
+    lastUpdated: shelter.lastUpdated
   };
 }
 
@@ -78,36 +81,91 @@ function mapUserToAmplify(user: User) {
 export const api = {
   // Shelters
   async getShelters(): Promise<Shelter[]> {
-    const { data } = await client.models.Shelter.list();
-    return data.map(mapShelterFromAmplify);
+    try {
+      const { data } = await client.models.Shelter.list();
+      return data.map(mapShelterFromAmplify);
+    } catch (error) {
+      console.error('Error fetching shelters:', error);
+      throw new Error('Failed to fetch shelters');
+    }
   },
 
-  async createShelter(shelter: Shelter): Promise<void> {
-    await client.models.Shelter.create(mapShelterToAmplify(shelter));
+  async createShelter(shelter: Shelter): Promise<Shelter> {
+    try {
+      const { data } = await client.models.Shelter.create(mapShelterToAmplify(shelter));
+      return mapShelterFromAmplify(data);
+    } catch (error) {
+      console.error('Error creating shelter:', error);
+      throw new Error('Failed to create shelter');
+    }
   },
 
-  async updateShelter(shelter: Shelter): Promise<void> {
-    await client.models.Shelter.update({
-      id: shelter.id,
-      ...mapShelterToAmplify(shelter)
-    });
+  async updateShelter(shelter: Shelter): Promise<Shelter> {
+    try {
+      const { data } = await client.models.Shelter.update(mapShelterToAmplify(shelter));
+      return mapShelterFromAmplify(data);
+    } catch (error) {
+      console.error('Error updating shelter:', error);
+      throw new Error('Failed to update shelter');
+    }
   },
 
   async updateShelterStatus(shelterId: string, status: Shelter['status']): Promise<void> {
-    await client.models.Shelter.update({
-      id: shelterId,
-      status,
-      lastUpdated: new Date().toISOString()
-    });
+    try {
+      await client.models.Shelter.update({
+        id: shelterId,
+        status,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error updating shelter status:', error);
+      throw new Error('Failed to update shelter status');
+    }
   },
 
   // Users
   async getUsers(): Promise<User[]> {
-    const { data } = await client.models.User.list();
-    return data.map(mapUserFromAmplify);
+    try {
+      const { data } = await client.models.User.list();
+      return data.map(mapUserFromAmplify);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw new Error('Failed to fetch users');
+    }
   },
 
-  async createUser(user: User): Promise<void> {
-    await client.models.User.create(mapUserToAmplify(user));
+  async createUser(user: User): Promise<User> {
+    try {
+      const { data } = await client.models.User.create(mapUserToAmplify(user));
+      return mapUserFromAmplify(data);
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw new Error('Failed to create user');
+    }
+  },
+
+  // Real-time subscriptions
+  subscribeShelters(callback: (shelters: Shelter[]) => void) {
+    const subscription = client.models.Shelter.observeQuery().subscribe({
+      next: ({ items }) => {
+        callback(items.map(mapShelterFromAmplify));
+      },
+      error: (error) => {
+        console.error('Shelter subscription error:', error);
+      }
+    });
+    return subscription;
+  },
+
+  subscribeUsers(callback: (users: User[]) => void) {
+    const subscription = client.models.User.observeQuery().subscribe({
+      next: ({ items }) => {
+        callback(items.map(mapUserFromAmplify));
+      },
+      error: (error) => {
+        console.error('User subscription error:', error);
+      }
+    });
+    return subscription;
   }
 };

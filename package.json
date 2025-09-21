@@ -60,6 +60,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backend:sandbox": "npx ampx sandbox",
+    "backend:deploy": "npx ampx deploy",
+    "backend:delete": "npx ampx delete",
+    "backend:status": "npx ampx status",
+    "backend:logs": "npx ampx logs"
   }
 }
