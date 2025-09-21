@@ -29,7 +29,7 @@ const LOCAL_NEED_LABELS = {
 } as const;
 
 export function ResponderDashboard() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, actions } = useApp();
   const [responderLocation, setResponderLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [sortedShelters, setSortedShelters] = useState<Array<Shelter & {distance?: number}>>(state.shelters);
   const [responderName, setResponderName] = useState('');
@@ -85,7 +85,7 @@ export function ResponderDashboard() {
     }
   };
 
-  const updateUserAndSortShelters = (location: {latitude: number, longitude: number}) => {
+  const updateUserAndSortShelters = async (location: {latitude: number, longitude: number}) => {
     // Create or update user
     const user: User = {
       id: currentUser?.id || Date.now().toString(),
@@ -96,8 +96,13 @@ export function ResponderDashboard() {
     };
     
     if (!currentUser) {
-      dispatch({ type: 'ADD_USER', payload: user });
-      setCurrentUser(user);
+      try {
+        await actions.addUser(user);
+        setCurrentUser(user);
+      } catch (error) {
+        alert('Failed to save user information.');
+        return;
+      }
     }
     
     // Sort shelters by distance
@@ -114,8 +119,12 @@ export function ResponderDashboard() {
     setSortedShelters(sheltersWithDistance);
   };
 
-  const handleStatusUpdate = (shelterId: string, status: Shelter['status']) => {
-    dispatch({ type: 'UPDATE_SHELTER_STATUS', payload: { shelterId, status } });
+  const handleStatusUpdate = async (shelterId: string, status: Shelter['status']) => {
+    try {
+      await actions.updateShelterStatus(shelterId, status);
+    } catch (error) {
+      alert('Failed to update shelter status. Please try again.');
+    }
   };
 
   const getStatusColor = (status: Shelter['status']) => {

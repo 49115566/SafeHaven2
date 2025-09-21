@@ -28,7 +28,7 @@ const LOCAL_NEED_LABELS = {
 } as const;
 
 export function ShelterDashboard() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, actions } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   
   const handleBack = () => {
@@ -64,7 +64,7 @@ export function ShelterDashboard() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const updatedShelter: Shelter = {
       ...currentShelter,
       capacity: {
@@ -83,8 +83,12 @@ export function ShelterDashboard() {
       lastUpdated: new Date().toISOString()
     };
 
-    dispatch({ type: 'UPDATE_SHELTER', payload: updatedShelter });
-    setIsEditing(false);
+    try {
+      await actions.updateShelter(updatedShelter);
+      setIsEditing(false);
+    } catch (error) {
+      alert('Failed to save changes. Please try again.');
+    }
   };
 
   const getStatusColor = (status: Shelter['status']) => {

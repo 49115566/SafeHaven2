@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, Shelter, User } from '../types';
+import { api } from '../services/api';
 
 type AppAction =
   | { type: 'SET_CURRENT_SIDE'; payload: AppState['currentSide'] }
@@ -20,9 +21,21 @@ const initialState: AppState = {
 const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  actions: {
+    addShelter: (shelter: Shelter) => Promise<void>;
+    updateShelter: (shelter: Shelter) => Promise<void>;
+    updateShelterStatus: (shelterId: string, status: Shelter['status']) => Promise<void>;
+    addUser: (user: User) => Promise<void>;
+  };
 }>({
   state: initialState,
-  dispatch: () => null
+  dispatch: () => null,
+  actions: {
+    addShelter: async () => {},
+    updateShelter: async () => {},
+    updateShelterStatus: async () => {},
+    addUser: async () => {}
+  }
 });
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -81,26 +94,53 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Load state from localStorage on mount
+  // Load data from API on mount
   useEffect(() => {
-    const savedState = localStorage.getItem('safehaven-state');
-    if (savedState) {
+    const loadData = async () => {
       try {
-        const parsedState = JSON.parse(savedState);
-        dispatch({ type: 'LOAD_STATE', payload: parsedState });
+        const [shelters, users] = await Promise.all([
+          api.getShelters(),
+          api.getUsers()
+        ]);
+        dispatch({ type: 'LOAD_STATE', payload: { ...state, shelters, users } });
       } catch (error) {
-        console.error('Failed to load saved state:', error);
+        console.error('Failed to load data from API:', error);
+        // Fallback to localStorage if API is unavailable
+        const savedState = localStorage.getItem('safehaven-state');
+        if (savedState) {
+          try {
+            const parsedState = JSON.parse(savedState);
+            dispatch({ type: 'LOAD_STATE', payload: parsedState });
+          } catch (parseError) {
+            console.error('Failed to load fallback data:', parseError);
+          }
+        }
       }
-    }
+    };
+    loadData();
   }, []);
 
-  // Save state to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('safehaven-state', JSON.stringify(state));
-  }, [state]);
+  const actions = {
+    addShelter: async (shelter: Shelter) => {
+      await api.createShelter(shelter);
+      dispatch({ type: 'ADD_SHELTER', payload: shelter });
+    },
+    updateShelter: async (shelter: Shelter) => {
+      await api.updateShelter(shelter);
+      dispatch({ type: 'UPDATE_SHELTER', payload: shelter });
+    },
+    updateShelterStatus: async (shelterId: string, status: Shelter['status']) => {
+      await api.updateShelterStatus(shelterId, status);
+      dispatch({ type: 'UPDATE_SHELTER_STATUS', payload: { shelterId, status } });
+    },
+    addUser: async (user: User) => {
+      await api.createUser(user);
+      dispatch({ type: 'ADD_USER', payload: user });
+    }
+  };
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, actions }}>
       {children}
     </AppContext.Provider>
   );

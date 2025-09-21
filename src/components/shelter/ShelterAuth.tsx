@@ -11,7 +11,7 @@ import { ArrowLeft, MapPin, Building, Search } from 'lucide-react';
 import { geocodeAddress } from '../../utils/geocoding';
 
 export function ShelterAuth() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, actions } = useApp();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     userName: '',
@@ -27,7 +27,7 @@ export function ShelterAuth() {
     dispatch({ type: 'SET_CURRENT_SIDE', payload: 'landing' });
   };
 
-  const handleLogin = (shelterId: string) => {
+  const handleLogin = async (shelterId: string) => {
     const existingShelter = state.shelters.find(s => s.id === shelterId);
     if (!existingShelter) return;
 
@@ -38,8 +38,12 @@ export function ShelterAuth() {
       shelterId: shelterId
     };
 
-    dispatch({ type: 'ADD_USER', payload: user });
-    dispatch({ type: 'SET_CURRENT_USER', payload: user });
+    try {
+      await actions.addUser(user);
+      dispatch({ type: 'SET_CURRENT_USER', payload: user });
+    } catch (error) {
+      alert('Failed to login. Please try again.');
+    }
   };
 
   const handleGeocodeAddress = async () => {
@@ -60,7 +64,7 @@ export function ShelterAuth() {
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!formData.shelterName || !formData.address || !formData.maxCapacity) {
       alert('Please fill in all required fields');
       return;
@@ -105,9 +109,13 @@ export function ShelterAuth() {
       shelterId: shelterId
     };
 
-    dispatch({ type: 'ADD_SHELTER', payload: newShelter });
-    dispatch({ type: 'ADD_USER', payload: user });
-    dispatch({ type: 'SET_CURRENT_USER', payload: user });
+    try {
+      await actions.addShelter(newShelter);
+      await actions.addUser(user);
+      dispatch({ type: 'SET_CURRENT_USER', payload: user });
+    } catch (error) {
+      alert('Failed to register shelter. Please try again.');
+    }
   };
 
   return (
