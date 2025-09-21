@@ -4,3 +4,4 @@
 .amplify
 amplifyconfiguration.json
 .env
+package-lock.json
